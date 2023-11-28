@@ -35,17 +35,25 @@ alias g, hide sticks, polymer.protein; show sticks, enabled and resn gly
 alias a, hide sticks, polymer.protein; show sticks, enabled and resn ala
 alias m, hide sticks, polymer.protein; show sticks, enabled and resn met
 alias p, hide sticks, polymer.protein; show sticks, enabled and resn pro
+alias i, hide sticks, polymer.protein; show sticks, enabled and resn ile
+alias l, hide sticks, polymer.protein; show sticks, enabled and resn leu
+alias v, hide sticks, polymer.protein; show sticks, enabled and resn val
+alias me, hide sticks, polymer.protein; show sticks, enabled and resn val; show sticks, enabled and resn leu; show sticks, enabled and resn ile; show sticks, enabled and resn met
 alias z, hide sticks, polymer.protein
 
 alias fasta, print(cmd.get_fastastr('enabled'))
+alias seq, print(cmd.get_fastastr('sele'))
 alias tag, label n. CA and sele, "%s%s" % (one_letter[resn], resi)
 alias b, label n. CA and sele, b
 alias untag, hide label, sele
 
 ##coloring
 alias plddt, color 0x0053D6, enabled and b < 100; color 0x65CBF3, enabled and b < 90; color 0xFFDB13, enabled and b < 70; color 0xFF7D45, enabled and b < 50; util.cnc; color white, enabled and sc. and elem c
+alias idr, hide cartoon, v. and b < 50
 alias white, util.cba(144,"enabled",_self=cmd)
 alias cc, util.color_chains("(enabled and name CA)",_self=cmd)
+alias dssp, color gray, enabled and ss l; color yellow, enabled and ss s; color red, enabled and ss h
+
 
 
 ##alignment
@@ -75,11 +83,30 @@ alias 4, create 4, byres organic expand 4 and enabled; disable !4; see
 alias x, select sele, byres sele expand 4 and enabled
 
 
-##Plugin
-run mut.py
+###Plugins
+# centroid
+## run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/centroid.py
+### centroid target
+# color by mutation
+## run https://raw.githubusercontent.com/keetane/PyMOL/main/color_by_mutation.py
 ### color_by_mutation wt, mt
-run findseq.py
+# findseq
+## run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/findseq.py
 ### findseq [sequence], [TargetedObjectName], [NewObjectName]
 ### select [NewObjectName], ps. [sequence]
-run interfaceResidues.py
+
 alias if, cmd.dist("interface_polar_conts","interface","interface",quiet=1,mode=2,label=0,reset=1);cmd.enable("interface_polar_conts")
+
+# ESMfold for PyMOL
+## run https://raw.githubusercontent.com/JinyuanSun/PymolFold/main/pf_plugin.py
+### esmfold sequence<400aa
+# Drawgridbox
+## run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/drawgridbox.py
+### drawgridbox target, nx=10, ny=10 nz=10, padding=5
+# gridbox
+## run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/gridbox.py
+### gridbox [centroid], size_x, size_y, size_z
+# text2structure
+## run https://raw.githubusercontent.com/keetane/PyMOL/main/text2structure.py
+### smiles SMILES
+### pc molecule name
