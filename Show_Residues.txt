@@ -1,0 +1,27 @@
+alias k, hide sticks, polymer.protein; show sticks, enabled and resn lys
+alias c, hide sticks, polymer.protein; show sticks, enabled and resn cys
+alias s, hide sticks, polymer.protein; show sticks, enabled and resn ser
+alias h, hide sticks, polymer.protein; show sticks, enabled and resn his
+alias t, hide sticks, polymer.protein; show sticks, enabled and resn thr
+alias r, hide sticks, polymer.protein; show sticks, enabled and resn arg
+alias d, hide sticks, polymer.protein; show sticks, enabled and resn asp
+alias e, hide sticks, polymer.protein; show sticks, enabled and resn glu
+alias n, hide sticks, polymer.protein; show sticks, enabled and resn asn
+alias q, hide sticks, polymer.protein; show sticks, enabled and resn gln
+alias y, hide sticks, polymer.protein; show sticks, enabled and resn tyr
+alias f, hide sticks, polymer.protein; show sticks, enabled and resn phe
+alias w, hide sticks, polymer.protein; show sticks, enabled and resn trp
+alias g, hide sticks, polymer.protein; show sticks, enabled and resn gly
+alias a, hide sticks, polymer.protein; show sticks, enabled and resn ala
+alias m, hide sticks, polymer.protein; show sticks, enabled and resn met
+alias p, hide sticks, polymer.protein; show sticks, enabled and resn pro
+alias i, hide sticks, polymer.protein; show sticks, enabled and resn ile
+alias l, hide sticks, polymer.protein; show sticks, enabled and resn leu
+alias v, hide sticks, polymer.protein; show sticks, enabled and resn val
+alias me, hide sticks, polymer.protein; show sticks, enabled and resn val; show sticks, enabled and resn leu; show sticks, enabled and resn ile; show sticks, enabled and resn met
+alias z, hide sticks, polymer.protein
+
+alias del, as nb_spheres, solvent
+alias sol, as nb_spheres, solvent; hide nb_spheres
+
+alias at,cmd.dist("contact","(sele)","(byobj (sele)) and (not(sele))",quiet=1,mode=2,label=0,reset=1); cmd.enable("contact")
