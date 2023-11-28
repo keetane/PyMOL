@@ -108,5 +108,6 @@ alias if, cmd.dist("interface_polar_conts","interface","interface",quiet=1,mode=
 ### gridbox [centroid], size_x, size_y, size_z
 # text2structure
 ## run https://raw.githubusercontent.com/keetane/PyMOL/main/text2structure.py
-### smiles SMILES
-### pc molecule name
+### smiles C1CCCCC1
+### pc JQ1
+
