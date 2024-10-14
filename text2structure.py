@@ -1,29 +1,24 @@
 from rdkit import Chem
-from rdkit.Chem import Draw, AllChem
+from rdkit.Chem import AllChem
 import pubchempy as pcp
+from pymol import cmd
 
-def smiles(x: str, y: str):
-    mol = Chem.MolFromSmiles(y)
-    Chem.AddHs(mol)
+def smiles(name: str, smile: str):
+    mol = Chem.MolFromSmiles(smile)
+    mol = Chem.AddHs(mol)
     AllChem.EmbedMolecule(mol)
     AllChem.UFFOptimizeMolecule(mol)
-    # Draw.MolToImage(mol)
-    writer = Chem.SDWriter(x + '.sdf')
-    writer.write(mol)
-    writer.close()
-    cmd.load(x + '.sdf')
+    pdb_block = Chem.MolToPDBBlock(mol)
+    cmd.read_pdbstr(pdb_block, name)
 
-def pc(x: str):
-    sdf = pcp.get_sdf(x, 'name')
+def pc(name: str):
+    sdf = pcp.get_sdf(name, 'name')
     mol = Chem.MolFromMolBlock(sdf)
-    Chem.AddHs(mol)
+    mol = Chem.AddHs(mol)
     AllChem.EmbedMolecule(mol)
     AllChem.UFFOptimizeMolecule(mol)
-
-    writer = Chem.SDWriter(x + '.sdf')
-    writer.write(mol)
-    writer.close()
-    cmd.load(x + '.sdf')
+    pdb_block = Chem.MolToPDBBlock(mol)
+    cmd.read_pdbstr(pdb_block, name)
 
 cmd.extend('smiles', smiles)
 cmd.extend('pc', pc)
