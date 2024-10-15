@@ -7,6 +7,8 @@ colored according to their difference in the BLOSUM90 matrix.
 Is meant to be used for similar proteins, e.g. close homologs or point mutants, 
 to visualize their differences.
 
+see below
+https://pymolwiki.org/index.php/Color_By_Mutations
 '''
 
 from pymol import cmd
