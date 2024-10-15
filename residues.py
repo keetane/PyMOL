@@ -54,6 +54,7 @@ cmd.extend('line', line)
 # select residues with distance around ligand
 def grab(sele='organic', distance=4):
     cmd.select('sele', 'byres %s around %s and enabled' % (sele, distance))
+    cmd.enable('sele')
 cmd.extend('grab', grab)
 
 # show polar contact of ligand to residues
