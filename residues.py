@@ -6,6 +6,7 @@ one_letter ={'VAL':'V', 'ILE':'I', 'LEU':'L', 'GLU':'E', 'GLN':'Q', \
 'ARG':'R', 'LYS':'K', 'SER':'S', 'THR':'T', 'MET':'M', 'ALA':'A',    \
 'GLY':'G', 'PRO':'P', 'CYS':'C'}
 
+
 cmd.alias('tag', 'label n. CA and sele, "%s%s" % (one_letter[resn], resi)')
 cmd.alias('b', 'label n. CA and sele, b')
 cmd.alias('untag', 'hide label, sele')
@@ -39,59 +40,85 @@ cmd.alias('del', 'as nb_spheres, solvent; hide nb_spheres')
 cmd.alias('sol', 'as nb_spheres, solvent')
 cmd.alias('ph', 'hide (hydro) and enabled and (elem C extend 1)')
 
-# interaction analysis
+## interaction analysis
+# zoom into around ligand
 def see(distance=8):
-    cmd.zoom('byres organic around %s and chain A' % distance)
+    cmd.zoom('byres organic around %s and enabled' % distance)
+cmd.extend('see', see)
 
+# show lines around ligand
 def line(distance=4):
     cmd.show('lines', 'byres organic around %s and enabled' % distance)
+cmd.extend('line', line)
 
+# select residues with distance around ligand
 def grab(distance=4):
     cmd.select('sele', 'byres sele around %s and enabled' % distance)
+cmd.extend('grab', grab)
 
+# show polar contact of ligand to residues
 def hb():
     cmd.select('ligand', 'organic and enabled')
     cmd.dist('contact', '(ligand)', '(byobj (ligand)) and (not(ligand))', quiet=1, mode=2, label=0, reset=1)
     cmd.enable('contact')
+cmd.extend('hb',hb)
 
+# show polar contact of sele to residues
 def at():
     cmd.dist('contact', '(sele)', '(byobj (sele)) and (not(sele))', quiet=1, mode=2, label=0, reset=1)
     cmd.enable('contact')
     see(distance)
+cmd.extend('at',at)
 
-def contact(distance=4):
+# create object of ligand and residues with distance
+def byres(distance=4):
     object_name = 'byres' + str(distance)
+    cmd.create('Lig', 'enabled and organic')
     cmd.create(object_name, 'byres organic around %s and enabled' % distance)
     cmd.disable('!' + object_name)
+    cmd.enable('Lig')
+    grab()
     see()
+cmd.extend('byres',byres)
 
+# show surface of residues with distance from ligand
 def well(distance=5):
     cmd.show('surface', 'byres organic expand %s and enabled' % distance)
+cmd.extend('well',well)
 
+# change surface cavity mode
 def cav():
     cmd.set('surface_cavity_mode', 2)
+cmd.extend('cav',cav)
 
 def wall():
     cmd.set('surface_cavity_mode', 0)
+cmd.extend('wall',wall)
 
+# preset ligand cartoon
 def pl():
     preset.ligand_cartoon("enabled", _self=cmd)
     cmd.show('spheres', 'solvent')
+cmd.extend('pl',pl)
 
 ## coloring
 def white():
     util.cba(144, "enabled", _self=cmd)
+cmd.extend('white',white)
 
 def cc():
     util.color_chains("(enabled and name CA)", _self=cmd)
+cmd.extend('cc',cc)
 
 def dssp():
     cmd.color('gray', 'enabled and ss l')
     cmd.color('yellow', 'enabled and ss s')
     cmd.color('red', 'enabled and ss h')
+cmd.extend('dssp',dssp)
 
 def idr():
     cmd.hide('cartoon', 'v. and b < 50')
+cmd.extend('idr',idr)
 
 def plddt():
     cmd.color('0x0053D6', 'enabled and b < 100')
@@ -100,11 +127,16 @@ def plddt():
     cmd.color('0xFF7D45', 'enabled and b < 50')
     util.cnc()
     cmd.color('white', 'enabled and sc. and elem C')
+cmd.extend('plddt',plddt)
 
 ## sequencing
+# print fasta sequence of enabled object
 def fasta():
     print(cmd.get_fastastr('enabled'))
+cmd.extend('fasta',fasta)
 
+# print fasta sequence of sele
 def seq():
     print(cmd.get_fastastr('sele'))
+cmd.extend('seq',seq)
 
