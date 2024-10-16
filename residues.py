@@ -64,6 +64,12 @@ def hb():
     cmd.enable('contact')
 cmd.extend('hb',hb)
 
+def dock(ligand='enabled and organic'):
+    cmd.delete('polar_conts')
+    cmd.dist("polar_conts","%s" % ligand, "(not %s)" % ligand ,quiet=1,mode=2,label=0,reset=1)
+    cmd.enable("polar_conts")
+cmd.extend('dock', dock)
+
 # show polar contact of sele to residues
 def at():
     cmd.dist('contact', '(sele)', '(byobj (sele)) and (not(sele))', quiet=1, mode=2, label=0, reset=1)
@@ -72,14 +78,16 @@ def at():
 cmd.extend('at',at)
 
 # create object of ligand and residues with distance
-def byres(distance=4):
+def byres(distance=8):
     object_name = 'byres' + str(distance)
     cmd.create('Lig', 'enabled and organic')
     cmd.create(object_name, 'byres organic around %s and enabled' % distance)
     cmd.disable('!' + object_name)
     cmd.enable('Lig')
-    grab()
+    line()
+    dock('Lig')
     see()
+    grab()
 cmd.extend('byres',byres)
 
 # show surface of residues with distance from ligand
