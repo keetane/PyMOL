@@ -1,3 +1,4 @@
+![PyMOL icon](https://cdn.worldvectorlogo.com/logos/pymol-1.svg)
 # PyMOL Plugin
 This plugin is based on PyMOL, which has been developed as OSS, with respect and thanks to the PyMOL wiki and the voluntary contributors who have made it freely available.  
 The basic development environment is Mac M1 or later, but these Plusins have confirmed that it also works on windows.
@@ -46,6 +47,9 @@ Would you like to see the surface around the ligand? Type `well` to show the sur
 
 
 
+### text2structure.py
+
+
 
 
 ## PyMOL Plugins from other sources
@@ -63,3 +67,20 @@ My favarite Plugins were described below. Great thanks to all of contributors fo
 
 ### Color By Mutations
 https://pymolwiki.org/index.php/Color_By_Mutations
+
+
+### centroid
+
+
+### findseq
+
+
+### ESMfold for PyMOL
+
+
+
+### Drawingbox
+
+
+
+### gridbox
