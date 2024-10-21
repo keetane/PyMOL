@@ -9,3 +9,4 @@
 *.smi
 *.xlsx
 pymolrc_backup.sh
+gif.py
