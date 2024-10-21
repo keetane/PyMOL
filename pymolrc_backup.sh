@@ -1,1 +1,0 @@
-cat ~/.pymolrc > ~/Documents/Git/PyMOL/pymolrc
