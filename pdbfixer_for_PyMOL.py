@@ -36,3 +36,4 @@ def run_pdbfixer_on_enabled_objects_with_solvent(ph=7):
             print(f"Error: failed to open file {fixed_pdb_file}")
 
 cmd.extend("pdbfixer", run_pdbfixer_on_enabled_objects_with_solvent)
+
