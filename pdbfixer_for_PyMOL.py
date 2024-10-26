@@ -2,7 +2,7 @@
 from pymol import cmd
 import subprocess
 
-def pdbfixer(obj_name=None):
+def pdbfixer(obj_name=None, ph=7):
     if obj_name is None:
         # デフォルトでアクティブなオブジェクトを指定
         obj_name = cmd.get_names('objects', enabled_only=1)[0]
@@ -12,7 +12,7 @@ def pdbfixer(obj_name=None):
     cmd.create('solvent_' + obj_name, obj_name + ' and resn HOH')
     
     # pdbfixerコマンドを実行
-    command = 'pdbfixer ' + new_obj + ' --out ' + new_obj
+    command = 'pdbfixer ' + new_obj + ' --out ' + new_obj + ' --ph=' + ph
     subprocess.run(command.split())
     
     # 修正後の構造を読み込む
