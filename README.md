@@ -5,8 +5,9 @@ The basic development environment is Mac M1 or later, but these Plusins have con
 ## PyMOL install
 For easy install of PyMOL, I recommend to use `conda`.  
 If you already installed Anaconda or miniconda, just install with command in terminal as follow,
->conda create -n your-env -y -c conda-forge python=3.9 pymol-open-source rdkit
-
+```
+conda create -n your-env -y -c conda-forge python=3.9 pymol-open-source rdkit
+```
 
 ## PyMOL instructions
 For basic information, I will recommend the link below,
