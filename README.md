@@ -8,15 +8,17 @@ If you already installed Anaconda or miniconda, just install with command in ter
 ```
 conda create -n your-env -y -c conda-forge python=3.9 pymol-open-source rdkit
 ```
+The latest version of PyMOL can be downloaded from Schrödinger https://pymol.org/. This is a paid version and I have not tried it. I have not checked if the following scripts are valid.
 
 ## PyMOL instructions
 For basic information, I will recommend the link below,
-1. University of Osaka
-2. PyMOL book
+1. PyMOL book
     https://yoshitakamo.github.io/pymol-book/  
     The owere of this tutorial, Dr. Yoshitaka Moriwaki, is one of great contributor of PyMOL. His support helped me enormously with my start of PyMOL. I appreciate his support and contribution to OSS community.
-3. PyMOL wiki
+2. PyMOL wiki
     https://pymolwiki.org/index.php/Main_Page
+3. Structural analysis at homt (in Japanese)  
+    https://ouchidekaiseki.com/index.php
 
 ## PyMOL Plugin
 This Plugins were described by Python, used pymol and rdkit.
@@ -72,21 +74,59 @@ My favarite Plugins were described below. Great thanks to all of contributors fo
 
 
 ### Color By Mutations
-https://pymolwiki.org/index.php/Color_By_Mutations
-
-
+https://pymolwiki.org/index.php/Color_By_Mutations  
+Please refer original script and document. For easy to use, `color_by_mutation.py` was placed on this repository.  
+For loading this plugin, run command as follows in PyMOL command line,
+```
+run https://raw.githubusercontent.com/keetane/PyMOL/refs/heads/main/color_by_mutation.py
+```
+The following commands are then executed to find the differences between wt and mt residues.
+```
+color_by_mutation wt, mt
+```
 ### centroid
-
+https://pymolwiki.org/index.php/Centroid  
+For loading this plugin, run command as follows in PyMOL command line,
+```
+run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/centroid.py
+```
+then, run command as follow to return the value or the geometric center of your selection or object.
+```
+centroid [selection of object]
+```
 
 ### findseq
 
 
-### ESMfold for PyMOL
+### PymolFold
+https://github.com/JinyuanSun/PymolFold  
+Load extension into PyMOL. in the PyMOL command prompt.
+```
+run https://raw.githubusercontent.com/JinyuanSun/PymolFold/main/pf_plugin.py
+```
+The following commands are then executed to predict the folded structure you have brought.
+```
+esmfold [your sequence]
+```
 
-
-
-### Drawingbox
-
-
+### DrawGridBox
+https://pymolwiki.org/index.php/DrawGridBox  
+Before docking with vina, gnina or other docking software, you may set the gridbox to search the poses molecules docked.  
+`DrawGridBox` draw grid boxes around a selection with padding.
+Load extension as follows,
+```
+run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/drawgridbox.py
+```
+The following commands will show the grid box, it is very useful to place searching area.
 
 ### gridbox
+https://github.com/Pymol-Scripts/Pymol-script-repo/blob/master/gridbox.py  
+gridbox extentions is also useful to show the gridbox.  
+Load extension as follows,
+```
+run https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/gridbox.py
+```
+The following commands will show the grid box.
+```
+gridbox [centroid], size_x, size_y, size_z
+```
