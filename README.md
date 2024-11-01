@@ -6,7 +6,7 @@ The basic development environment is Mac M1 or later, but these Plusins have con
 For easy install of PyMOL, I recommend to use `conda`.  
 If you already installed Anaconda or miniconda, just install with command in terminal as follow,
 ```
-conda create -n your-env -y -c conda-forge python=3.9 pymol-open-source rdkit openbabel numpy scipy mpi4py
+conda create -n your-env -y -c conda-forge python=3.10 pymol-open-source rdkit openbabel numpy scipy mpi4py
 ```
 The latest version of PyMOL can be downloaded from Schrödinger https://pymol.org/. This is a paid version and I have not tried it. I have not checked if the following scripts are valid.
 
