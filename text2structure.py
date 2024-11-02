@@ -48,3 +48,28 @@ def pc(name: str, pH:float=None):
         print(f"An error occurred: {e}")
     cmd.hide(f'({name} and hydro and (elem C extend 1))')
 cmd.extend('pc', pc)
+
+
+def pubchem2smi(compound_name: str):
+    try:
+        # PubChemから化合物情報を取得
+        compound = pcp.get_compounds(compound_name, 'name')
+        if not compound:
+            print(f"No compounds found for {compound_name}")
+            return
+
+        # SMILESを取得
+        smiles = compound[0].canonical_smiles
+        if not smiles:
+            print(f"SMILES not found for {compound_name}")
+            return
+
+        # ファイルに保存
+        file_name = f"{compound_name.replace(' ', '_')}.smi"
+        with open(file_name, 'w') as f:
+            f.write(smiles)
+        print(f"SMILES for {compound_name} saved in {file_name}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+cmd.extend('pubchem2smi', pubchem2smi)
