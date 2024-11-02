@@ -4,10 +4,10 @@ import pubchempy as pcp
 from pymol import cmd
 from openbabel import openbabel as ob
 
+# https://iwatobipen.wordpress.com/2024/05/14/add-hydrogen-with-user-defined-ph-from-python-openbabel-cheminformatics/
 obc = ob.OBConversion()
 obc.SetInAndOutFormats('smi', 'smi')
 
-# https://iwatobipen.wordpress.com/2024/05/14/add-hydrogen-with-user-defined-ph-from-python-openbabel-cheminformatics/
 def get_smi_with_pH(smi, pH:float=7.4):
     obmol = ob.OBMol()
     obc.ReadString(obmol, smi)
