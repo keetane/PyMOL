@@ -55,9 +55,45 @@ Would you like to see the surface around the ligand? Type `well` to show the sur
 
 
 ### text2structure.py
-
 ![text2structure](./img/text2structure.gif)
+text2structure is useful script for drawing the structure on PyMOL from smiles or compound name.  
+It can be installed by running the following command at the PyMOL prompt.
 
+```pymol
+run https://raw.githubusercontent.com/keetane/PyMOL/refs/heads/main/text2structure.py
+```
+
+If you want to draw the structure on the PyMOL directly, run the following example.
+
+```pymol 
+smiles piperidine, C1CCCNC1
+```
+
+If protonation or deprotonation under specific pH conditions is desired, the structure can be prepared in openbabel.
+
+```pymol
+smiles piperazine, C1NCCNC1, 7.4
+```
+Simple drawing is also available.
+```pymol
+smiles C1CCCCC1
+```
+
+`pc` command calls and draws structure from pubchem database.
+```pymol
+pc aspirin
+```
+Protonation/deprotonation by openbabel is also available for `pc` command.
+
+```pymol
+pc aspirin, 7.4
+```
+`pubchem2smi` command calls and save SMILES strings of the compound from PubChem database.
+```pymol
+pubchem2smi aspirin
+# ./aspirin.smi
+# CC(=O)OC1=CC=CC=C1C(=O)O
+```
 
 
 ## PyMOL Plugins from other sources

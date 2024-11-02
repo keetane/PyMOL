@@ -25,7 +25,7 @@ def smiles(name: str, smile:str=None, pH:float=None):
     AllChem.UFFOptimizeMolecule(mol)
     pdb_block = Chem.MolToPDBBlock(mol)
     cmd.read_pdbstr(pdb_block, name)
-    cmd.hide(f'({smile} and hydro and (elem C extend 1))')
+    cmd.hide(f'({name} and hydro and (elem C extend 1))')
 cmd.extend('smiles', smiles)
 
 def pc(name: str, pH:float=None):
@@ -68,7 +68,8 @@ def pubchem2smi(compound_name: str):
         file_name = f"{compound_name.replace(' ', '_')}.smi"
         with open(file_name, 'w') as f:
             f.write(smiles)
-        print(f"SMILES for {compound_name} saved in {file_name}")
+        print(f"SMILES for {compound_name} saved in {file_name} as")
+        print(f"{smiles}")
 
     except Exception as e:
         print(f"An error occurred: {e}")
