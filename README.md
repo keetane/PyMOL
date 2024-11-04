@@ -104,9 +104,13 @@ My favarite Plugins were described below. Great thanks to all of contributors fo
 
 
 2. load Plugins from source
-
+```pymol
+run [URL of script]
+```
 3. load Plugins from local file
-
+```pymol
+run [path of script]
+```
 
 
 ### Color By Mutations

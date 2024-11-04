@@ -12,7 +12,7 @@ def pdbfixer(obj_name=None, ph=7):
     cmd.create('solvent_' + obj_name, obj_name + ' and resn HOH')
     
     # pdbfixerコマンドを実行
-    command = 'pdbfixer ' + new_obj + ' --out ' + new_obj + ' --ph=' + ph
+    command = 'pdbfixer ' + new_obj + ' --out ' + new_obj + ' --ph=' + str(ph)
     subprocess.run(command.split())
     
     # 修正後の構造を読み込む
