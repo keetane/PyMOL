@@ -74,3 +74,21 @@ def pubchem2smi(compound_name: str):
     except Exception as e:
         print(f"An error occurred: {e}")
 cmd.extend('pubchem2smi', pubchem2smi)
+
+
+def sele2smi(selection="sele"):
+    # PDB形式で一時ファイルに保存
+    tmp_pdb = "/tmp/tmp_molecule.pdb"
+    cmd.save(tmp_pdb, selection)
+    
+    # RDKitでPDBファイルを読み込み
+    molecule = Chem.MolFromPDBFile(tmp_pdb)
+    
+    if molecule is not None:
+        # SMILES形式に変換して出力
+        smiles = Chem.MolToSmiles(molecule)
+        print("SMILES:", smiles)
+    else:
+        print("分子を読み込めませんでした。")
+# コマンドをPyMOLに拡張
+cmd.extend("sele2smi", sele2smi)
