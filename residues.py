@@ -34,7 +34,7 @@ cmd.alias('v', 'hide sticks, polymer.protein; show sticks, enabled and resn val'
 cmd.alias('me', 'hide sticks, polymer.protein; show sticks, enabled and resn val; show sticks, enabled and resn leu; show sticks, enabled and resn ile; show sticks, enabled and resn met')
 cmd.alias('z', 'hide sticks, polymer.protein')
 cmd.alias('addh', 'cmd.h_add("sele")')
-cmd.alias('remh', 'cmd.remove("sele & hydro & not nbr. (don.|acc.)")')
+cmd.alias('remh', 'cmd.remove("sele extend 1 & hydro & not nbr. (don.|acc.)")')
 
 ### water and hydrophobic hydrogens manupilations
 cmd.alias('del', 'as nb_spheres, solvent; hide nb_spheres')
