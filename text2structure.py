@@ -10,12 +10,14 @@ import datetime
 obc = openbabel.OBConversion()
 obc.SetInAndOutFormats('smi', 'smi')
 
+# adjusting the pH of SMILES molecules
 def get_smi_with_pH(smi, pH:float=7.4):
     obmol = openbabel.OBMol()
     obc.ReadString(obmol, smi)
     obmol.CorrectForPH(float(pH))
     return obc.WriteString(obmol)
 
+# generating object from smiles (with pH)
 def smiles(name: str, smile:str=None, pH:float=None):
     if smile is None:
         smile=name
@@ -30,6 +32,7 @@ def smiles(name: str, smile:str=None, pH:float=None):
     cmd.hide(f'({name} and hydro and (elem C extend 1))')
 cmd.extend('smiles', smiles)
 
+# calling molecule from PubChem database (with pH)
 def pc(name: str, pH:float=None):
     try:
         sdf = pcp.get_sdf(name, 'name')
@@ -51,7 +54,7 @@ def pc(name: str, pH:float=None):
     cmd.hide(f'({name} and hydro and (elem C extend 1))')
 cmd.extend('pc', pc)
 
-
+# Calling smiles from PubChem database
 def pubchem2smi(compound_name: str):
     try:
         # PubChemから化合物情報を取得
@@ -77,32 +80,8 @@ def pubchem2smi(compound_name: str):
         print(f"An error occurred: {e}")
 cmd.extend('pubchem2smi', pubchem2smi)
 
-
-def psmi(selection="sele"):
-    # 一時PDBファイル名
-    tmp_pdb = "/tmp/tmp_molecule.pdb"
-    # PyMOLから選択された分子をPDB形式で保存
-    cmd.save(tmp_pdb, selection)
-
-    # Open Babelを使用してPDBファイルを読み込み
-    obConversion = openbabel.OBConversion()
-    obConversion.SetInAndOutFormats("pdb", "smi")
-    mol = openbabel.OBMol()
-    obConversion.ReadFile(mol, tmp_pdb)
-    
-    # SMILES形式に変換し、出力する
-    smiles = obConversion.WriteString(mol).strip()
-    smiles = smiles.strip('/tmp/tmp_molecule.pdb').replace(".", "\n")
-    print(f"SMILES:\n{smiles}")
-# コマンドをPyMOLに拡張
-cmd.extend("psmi", psmi)
-
-
-
-from pymol import cmd
-from openbabel import openbabel
-
-def psmi(selection="sele"):
+# print smiles
+def printsmiles(selection="sele"):
     # 一時PDBファイル名
     tmp_pdb = "/tmp/tmp_molecule.pdb"
     # PyMOLから選択された分子をPDB形式で保存
@@ -119,12 +98,12 @@ def psmi(selection="sele"):
     object_name = cmd.get_object_list(selection)[0]
     smiles = smiles.strip('/tmp/tmp_molecule.pdb').replace(".", "\n")
     print(f"SMILES:\n{object_name}\t{smiles}")
-
 # コマンドをPyMOLに拡張
-cmd.extend("psmi", psmi)
+cmd.extend("printsmiles", printsmiles)
 
 
 
+# Saving .smi file of selected objects
 def ss(output_file=None, selection="sele"):
     # デフォルトのファイル名を現在の日付と時間に基づいて生成
     if output_file is None:
@@ -133,7 +112,7 @@ def ss(output_file=None, selection="sele"):
         output_file = output_file + ".smi"
     
     # 一時PDBファイル名
-    tmp_pdb = "/tmp/tmp_molecule.pdb"
+    tmp_pdb = f"/tmp/{output_file}.pdb"
     # PyMOLから選択された分子をPDB形式で保存
     cmd.save(tmp_pdb, selection)
 
@@ -163,13 +142,10 @@ def ss(output_file=None, selection="sele"):
     
     print(f"SMILESが{output_file}に保存されました。")
 
-    # 一時ファイルを削除
-    os.remove(tmp_pdb)
-
 # コマンドをPyMOLに拡張
 cmd.extend("ss", ss)
 
-
+# loading the molecules from .smi file
 def loadsmi(input_file):
     # 出力する一時SDFファイル名
     output_file = "/tmp/tmp_molecule.sdf"
@@ -215,3 +191,8 @@ def loadsmi(input_file):
 
 # コマンドをPyMOLに拡張
 cmd.extend("loadsmi", loadsmi)
+
+
+def testcall(text):
+    print(text)
+cmd.extend('testcall', testcall)
