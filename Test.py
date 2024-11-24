@@ -1,35 +1,31 @@
 from pymol import cmd
+from openbabel import openbabel
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-def smiles(arg_string):
-    # 引数をスペースで分割
-    args = arg_string.split()
+def build(selection="sele"):
+    # 一時PDBファイル名
+    tmp_pdb = f"/tmp/{selection}.pdb"
     
-    # 最低限の引数チェック
-    if len(args) < 2:
-        print("エラー: コマンドには少なくとも名前とSMILES文字列が必要です。")
-        return
+    # PyMOLから選択された分子をPDB形式で保存
+    cmd.save(tmp_pdb, selection)
+
+    # Open Babelを使用してPDBファイルを読み込み
+    obConversion = openbabel.OBConversion()
+    obConversion.SetInAndOutFormats("pdb", "smi")
+    mol = openbabel.OBMol()
+    obConversion.ReadFile(mol, tmp_pdb)
     
-    name = args[0]
-    smile = args[1]
-    
-    # 必要に応じてpH引数を取得
-    pH = None
-    if len(args) > 2:
-        try:
-            pH = float(args[2])
-        except ValueError:
-            print(f"エラー: pH値 '{args[2]}' は有効な数値ではありません。")
-            return
-    
-    if pH is not None:
-        smile = get_smi_with_pH(smile, pH)
-    
-    mol = Chem.MolFromSmiles(smile)
+    # SMILES形式に変換してオブジェクト名を取得
+    smiles = obConversion.WriteString(mol).strip()
+    object_name = cmd.get_object_list(selection)[0]
+    print(f"SMILES:\n{object_name}\t{smiles}")
+
+    # SMILESから立体構造を生成
+    mol = Chem.MolFromSmiles(smiles)
     
     if mol is None:
-        print(f"エラー: SMILES文字列 '{smile}' から分子を生成できませんでした。")
+        print(f"エラー: SMILES文字列 '{smiles}' から分子を生成できませんでした。")
         return
     
     mol = Chem.AddHs(mol)
@@ -41,8 +37,11 @@ def smiles(arg_string):
         print("エラー: 分子のPDBブロックを生成できませんでした。")
         return
     
-    cmd.read_pdbstr(pdb_block, name)
-    # cmd.hide(f'({name} and hydro and (elem C extend 1))')
+    # PyMOLに立体構造を読み込み
+    cmd.read_pdbstr(pdb_block, object_name)
+    cmd.hide(f'({object_name} and hydro and (elem C extend 1))')
+    
+    print(f"{object_name}の立体構造がPyMOLにロードされました。")
 
 # コマンドをPyMOLに拡張
-cmd.extend('smiles', smiles)
+cmd.extend('build', build)
