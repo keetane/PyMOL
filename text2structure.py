@@ -269,3 +269,6 @@ def loadsmiles(input_file):
 
 # コマンドをPyMOLに拡張
 cmd.extend("loadsmiles", loadsmiles)
+
+
+

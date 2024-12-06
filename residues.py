@@ -10,6 +10,18 @@ cmd.alias('tag', 'label n. CA and sele, "%s%s" % (one_letter[resn], resi)')
 cmd.alias('b', 'label n. CA and sele, b')
 cmd.alias('untag', 'hide label, sele')
 
+def label_atom_coords(selection="sele"):
+    # get selected atom coordinate
+    x, y, z = cmd.get_atom_coords(selection)
+    # label coordinate
+    label_text = f"({x:.2f}, {y:.2f}, {z:.2f})"
+    cmd.label(selection, f'"{label_text}"')
+# extend command for PyMOL
+cmd.extend("ctag", label_atom_coords)
+
+# place a pseudoatom 
+# cmd.pseudoatom('ps', pos=[0, 0, 0], elem='C')
+
 ### hide sticks, show residues
 cmd.alias('k', 'hide sticks, polymer.protein; show sticks, enabled and resn lys')
 cmd.alias('c', 'hide sticks, polymer.protein; show sticks, enabled and resn cys')
@@ -112,7 +124,7 @@ cmd.extend('at',at)
 def byres(distance=8, ligand='organic and enabled'):
     object_name = 'byres' + str(distance)
     cmd.create('Lig', '%s' % ligand)
-    cmd.create(object_name, 'byres %s around %s' % (ligand, distance))
+    cmd.create(object_name, 'byres %s around %s and enabled' % (ligand, distance))
     cmd.disable('!' + object_name)
     cmd.enable('Lig')
     line()
