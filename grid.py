@@ -38,7 +38,10 @@ NOTES
     specify the width of the lines, the padding and also the color.
 """
 
-def grid(selection="sele", padding=0.0, lw=1.5, r=0.5, g=0.5, b=0.8):
+from pymol import cmd
+import os
+
+def grid(selection="enabled and organic", padding=4.0, lw=1.5, r=0.5, g=0.5, b=0.8):
     ([minX, minY, minZ], [maxX, maxY, maxZ]) = cmd.get_extent(selection)
     print("Box dimensions (%.2f, %.2f, %.2f)" % (maxX - minX, maxY - minY, maxZ - minZ))
     center_of_mass = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2]
@@ -81,7 +84,7 @@ cmd.extend("grid", grid)
 
 
 
-def search_space(selection="(all)", padding=4.0):
+def search_space(selection="enabled and organic", padding=4.0):
     ([minX, minY, minZ], [maxX, maxY, maxZ]) = cmd.get_extent(selection)
     print("Box dimensions (%.2f, %.2f, %.2f)" % (maxX - minX, maxY - minY, maxZ - minZ))
 
@@ -103,8 +106,62 @@ def search_space(selection="(all)", padding=4.0):
     center_y = (minY + maxY) / 2
     center_z = (minZ + maxZ) / 2
 
+    return size_x, size_y, size_z, center_x, center_y, center_z
     print("\nSmina Options:")
     print("--center_x %.3f," % center_x, "--center_y %.3f," % center_y, "--center_z %.3f," % center_z,
           "--size_x %.3f," % size_x, "--size_y %.3f," % size_y, "--size_z %.3f," % size_z)
-
 cmd.extend("search_space", search_space)
+
+
+def smina(ligand='enabled and organic', receptor='enabled and polymer.protein', grid=None, padding=4.0, n_pose=3, seed=0):
+    # temporary file of receptor
+    rec='/tmp/rec.pdb'
+    # save pdb file of protein from enabled object
+    cmd.save(rec, receptor)
+
+    # temporary file of ligand
+    lig='/tmp/lig.pdb'
+    # save pdb file of protein from enabled object
+    cmd.save(lig, ligand)
+    if grid==None:
+        grid=ligand
+
+    # defining grid box
+    search_space(selection=grid)
+    ([minX, minY, minZ], [maxX, maxY, maxZ]) = cmd.get_extent(grid)
+    center_of_mass = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2]
+    minX = minX - float(padding)
+    minY = minY - float(padding)
+    minZ = minZ - float(padding)
+    maxX = maxX + float(padding)
+    maxY = maxY + float(padding)
+    maxZ = maxZ + float(padding)
+
+    size_x = maxX - minX
+    size_y = maxY - minY
+    size_z = maxZ - minZ
+
+    center_x = (minX + maxX) / 2
+    center_y = (minY + maxY) / 2
+    center_z = (minZ + maxZ) / 2
+
+
+    print("\nExcuting Smina")
+    docking = f'smina \
+        -r {rec} \
+        -l {lig} \
+        -o /tmp/docked.sdf \
+        --center_x {center_x} \
+        --center_y {center_y} \
+        --center_z {center_z} \
+        --size_x {size_x} \
+        --size_y {size_y} \
+        --size_z {size_z} \
+        --seed {seed} \
+        --num_modes {n_pose}'
+    os.system(docking)
+    cmd.load('/tmp/docked.sdf')
+cmd.extend("smina", smina)
+
+
+    
