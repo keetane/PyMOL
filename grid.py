@@ -2,6 +2,15 @@ from pymol import cmd
 from pymol.cgo import *
 import itertools
 from random import randint
+import os
+import subprocess
+
+
+# mkdir like unix command
+def mkdir(dir:str):
+    os.makedirs(dir)
+cmd.extend('mkdir', mkdir)
+
 # This script was described based on drawgridbox@PyMOL wiki. Users must check original script and license especially for commercial use.
 # https://pymolwiki.org/index.php/DrawGridBox
 
@@ -38,9 +47,7 @@ NOTES
     specify the width of the lines, the padding and also the color.
 """
 
-from pymol import cmd
-import os
-
+# draw gridbox
 def grid(selection="enabled and organic", padding=4.0, lw=1.5, r=0.5, g=0.5, b=0.8):
     ([minX, minY, minZ], [maxX, maxY, maxZ]) = cmd.get_extent(selection)
     print("Box dimensions (%.2f, %.2f, %.2f)" % (maxX - minX, maxY - minY, maxZ - minZ))
@@ -79,7 +86,6 @@ def grid(selection="enabled and organic", padding=4.0, lw=1.5, r=0.5, g=0.5, b=0
 
     cmd.load_cgo(box, boxName)
     return boxName
-
 cmd.extend("grid", grid)
 
 
@@ -113,7 +119,7 @@ def search_space(selection="enabled and organic", padding=4.0):
 cmd.extend("search_space", search_space)
 
 
-def smina(ligand='enabled and organic', receptor='enabled and polymer.protein', grid=None, padding=4.0, n_pose=3, seed=0):
+def smina(ligand='enabled and organic', receptor='enabled and polymer.protein', grid=None, padding=4.0, n_pose=3, seed=0, comment=None):
     # temporary file of receptor
     rec='/tmp/rec.pdb'
     # save pdb file of protein from enabled object
@@ -125,9 +131,10 @@ def smina(ligand='enabled and organic', receptor='enabled and polymer.protein', 
     cmd.save(lig, ligand)
     if grid==None:
         grid=ligand
+    else:
+        grid = grid + ' and polymer'    
 
     # defining grid box
-    search_space(selection=grid)
     ([minX, minY, minZ], [maxX, maxY, maxZ]) = cmd.get_extent(grid)
     center_of_mass = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2]
     minX = minX - float(padding)
@@ -145,23 +152,38 @@ def smina(ligand='enabled and organic', receptor='enabled and polymer.protein', 
     center_y = (minY + maxY) / 2
     center_z = (minZ + maxZ) / 2
 
-
+    if comment==None:
+        comment=''
     print("\nExcuting Smina")
-    docking = f'smina \
-        -r {rec} \
-        -l {lig} \
-        -o /tmp/docked.sdf \
-        --center_x {center_x} \
-        --center_y {center_y} \
-        --center_z {center_z} \
-        --size_x {size_x} \
-        --size_y {size_y} \
-        --size_z {size_z} \
-        --seed {seed} \
-        --num_modes {n_pose}'
-    os.system(docking)
-    cmd.load('/tmp/docked.sdf')
+    docking = [
+        'smina',
+        '-r', rec,
+        '-l', lig,
+        '-o', f'./docked_{comment}.sdf',
+        '--center_x', str(center_x),
+        '--center_y', str(center_y),
+        '--center_z', str(center_z),
+        '--size_x', str(size_x),
+        '--size_y', str(size_y),
+        '--size_z', str(size_z),
+        '--seed', str(seed),
+        '--num_modes', str(n_pose)
+    ]
+
+    process = subprocess.Popen(docking, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    
+    print(stdout.decode())
+    print(stderr.decode())
+    
+
+    cmd.load(f'./docked_{comment}.sdf')
 cmd.extend("smina", smina)
+
+from rdkit.Chem import PandasTools
+def smina_score(docked='docked_.sdf'):
+    print(PandasTools.LoadSDF(docked))
+cmd.extend('smina_score', smina_score)
 
 
     

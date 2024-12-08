@@ -5,6 +5,10 @@ from pymol import cmd
 from openbabel import openbabel
 import datetime
 
+# mkdir like unix command
+def mkdir(dir:str):
+    os.makedirs(dir)
+cmd.extend('mkdir', mkdir)
 
 # https://iwatobipen.wordpress.com/2024/05/14/add-hydrogen-with-user-defined-ph-from-python-openbabel-cheminformatics/
 obc = openbabel.OBConversion()
