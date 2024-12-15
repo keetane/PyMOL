@@ -119,42 +119,50 @@ def pubchem2smiles(compound_name: str):
         print(f"An error occurred: {e}")
 cmd.extend('pubchem2smiles', pubchem2smiles)
 
+
+
 # print smiles
 def printsmiles(selection="sele"):
-    # 一時PDBファイル名
-    tmp_pdb = "/tmp/tmp_molecule.pdb"
-    # PyMOLから選択された分子をPDB形式で保存
-    cmd.save(tmp_pdb, selection)
+    # 一時SDFファイル名
+    tmp = "./tmp_molecule.sdf"
+    # PyMOLから選択された分子をSDF形式で保存
+    cmd.save(tmp, selection)
 
-    # Open Babelを使用してPDBファイルを読み込み
-    obConversion = openbabel.OBConversion()
-    obConversion.SetInAndOutFormats("pdb", "smi")
-    mol = openbabel.OBMol()
-    obConversion.ReadFile(mol, tmp_pdb)
-    
+    # rdkitで分子をロード、正規化
+    suppl = Chem.SDMolSupplier(tmp)
+    mol = next(suppl) if suppl and len(suppl) > 0 else None
+    if mol is None:
+        print("Error: Failed to load the molecule from the SDF file.")
+        return
+    smiles = Chem.MolToSmiles(mol)
+
     # SMILES形式に変換し、オブジェクト名を追加して出力する
-    smiles = obConversion.WriteString(mol).strip()
     object_name = cmd.get_object_list(selection)[0]
-    smiles = smiles.strip('/tmp/tmp_molecule.pdb').replace(".", "\n")
     print(f"SMILES:\n{object_name}\t{smiles}")
+
+    # 一時ファイルを削除
+    os.remove(tmp)
+
 # コマンドをPyMOLに拡張
 cmd.extend("printsmiles", printsmiles)
 
-def build(selection="sele"):
-    # 一時PDBファイル名
-    tmp_pdb = f"/tmp/{selection}.pdb"
-    
-    # PyMOLから選択された分子をPDB形式で保存
-    cmd.save(tmp_pdb, selection)
 
-    # Open Babelを使用してPDBファイルを読み込み
-    obConversion = openbabel.OBConversion()
-    obConversion.SetInAndOutFormats("pdb", "smi")
-    mol = openbabel.OBMol()
-    obConversion.ReadFile(mol, tmp_pdb)
-    
-    # SMILES形式に変換してオブジェクト名を取得
-    smiles = obConversion.WriteString(mol).strip()
+
+def build(selection="sele"):
+    # 一時SDFファイル名
+    tmp = "./tmp_molecule.sdf"
+    # PyMOLから選択された分子をSDF形式で保存
+    cmd.save(tmp, selection)
+
+    # rdkitで分子をロード、正規化
+    suppl = Chem.SDMolSupplier(tmp)
+    mol = next(suppl) if suppl and len(suppl) > 0 else None
+    if mol is None:
+        print("Error: Failed to load the molecule from the SDF file.")
+        return
+    smiles = Chem.MolToSmiles(mol)
+
+    # SMILES形式に変換し、オブジェクト名を追加して出力する
     object_name = cmd.get_object_list(selection)[0]
     print(f"SMILES:\n{object_name}\t{smiles}")
 
@@ -175,9 +183,13 @@ def build(selection="sele"):
         return
     
     # PyMOLに立体構造を読み込み
+    cmd.remove(object_name)
     cmd.read_pdbstr(pdb_block, object_name)
     cmd.hide(f'({object_name} and hydro and (elem C extend 1))')
     
+    # 一時ファイルを削除
+    os.remove(tmp)
+
     print(f"{object_name}の立体構造がPyMOLにロードされました。")
 # コマンドをPyMOLに拡張
 cmd.extend('build', build)
