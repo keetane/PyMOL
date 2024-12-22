@@ -4,6 +4,7 @@ import pubchempy as pcp
 from pymol import cmd
 from openbabel import openbabel
 import datetime
+import urllib.request
 
 # mkdir like unix command
 def mkdir(dir:str):
@@ -14,6 +15,17 @@ cmd.extend('mkdir', mkdir)
 def rm(file:str):
     os.remove(file)
 cmd.extend('rm', rm)
+
+# wget command
+def af2(uniprot:str):
+    url = f'https://alphafold.ebi.ac.uk/files/AF-{uniprot}-F1-model_v4.pdb'
+    with urllib.request.urlopen(url) as u:
+        with open(f'{uniprot}.pdb', 'bw') as o:
+            o.write(u.read())
+    cmd.load(f'{uniprot}.pdb')
+cmd.extend('af2', af2)
+
+
 
 
 # https://iwatobipen.wordpress.com/2024/05/14/add-hydrogen-with-user-defined-ph-from-python-openbabel-cheminformatics/
@@ -318,3 +330,108 @@ def prep_smi(output_file='ligand.sdf'):
 # PyMOLにコマンドとして登録
 cmd.extend("prep_smi", prep_smi)
 
+
+# define peptide side chains
+residues = {
+    'G': '([H])([H])',
+    'A': '([H])(C)',
+    'V': '([H])(C(C)C)',
+    'L': '([H])(CC(C)C)',
+    'I': '([H])(C(C)CC)',
+    'M': '([H])(CCSC)',
+    'F': '([H])(CC1=CC=CC=C1)',
+    'W': '([H])(CC1=CNC2=C1C=CC=C2)',
+    'S': '([H])(CO)',
+    'C': '([H])(CS)',
+    'Y': '([H])(CC1=CC=C(C=C1)O)',
+    'N': '([H])(C(C(=O)N))',
+    'Q': '([H])(C(CC(=O)N))',
+    'D': '([H])(C(C(=O)O))',
+    'E': '([H])(C(CC(=O)O))',
+    'H': '([H])(C(C1=CNC=N1))',
+    'K': '([H])(CCCCN)',
+    'R': '([H])(CCCNC(=N)N)',
+    'T': '([H])([C@]([H])(O)C)',
+    'a': '(C)([H])',
+    'v': '((C(C)C)([H])',
+    'l': '(CC(C)C)([H])',
+    'i': '(C(C)CC)([H])',
+    'm': '(CCSC)([H])',
+    'f': '(CC1=CC=CC=C1)([H])',
+    'w': '(CC1=CNC2=C1C=CC=C2)([H])',
+    's': '(CO)([H])',
+    'c': '(CS)([H])',
+    'y': '(CC1=CC=C(C=C1)O)([H])',
+    'n': '(C(C(=O)N))([H])',
+    'q': '(C(CC(=O)N))([H])',
+    'd': '(C(C(=O)O))([H])',
+    'e': '(C(CC(=O)O))([H])',
+    'h': '(C(C1=CNC=N1))([H])',
+    'k': '(CCCCN)([H])',
+    'r': '(CCCNC(=N)N)([H])',
+    't': '([C@]([H])(O)C)([H])',
+    'g': '(C)(C)',
+    'J': '([H])(CS8)',
+    'j': '(CS8)([H])',
+    'B': '([H])(CS7)',
+    'b': '(CS7)([H])',
+}
+
+# aa format
+aa = 'N[C@@]{X}C(=O)'
+aaa = {k: aa.format(X=v) for k, v in residues.items()}
+# add prolines and threonines
+aaa['P'] = 'N1[C@@]([H])(CCC1)C(=O)'
+aaa['p'] = 'N1[C@@](CCC1)([H])C(=O)'
+
+# PepType
+PepType = {
+    '0': 'Liner',
+    '1': 'Head to Tail',
+    '2': 'Symple Disulfide',
+    '3': 'Cystein Cyclization'
+}
+
+# generate peptide
+def peptide(seq, mode=None, name=None):
+    if name == None:
+        name = seq
+
+    # generate SMILES from fasta
+    sec = ''.join([aaa[aa] for aa in seq])
+
+    # Mode of Cyclyzation
+    if mode == '1':
+        smiles = 'N9' + sec[1:-4] + '9(=O)'  # Head to Tail
+    elif mode == '2':
+        smiles = 'N[C@@]([H])(CS9)C(=O)' + sec + 'N[C@@]([H])(CS9)C(=O)O'  # Symple Disulfide
+    elif mode == '3':
+        smiles = 'C9C(=O)' + sec + 'N[C@@]([H])(CS9)C(=O)N'  # Cystein Cyclization
+    else :
+        smiles = sec + 'N'  # Liner
+
+    # generate structure
+    mol = Chem.MolFromSmiles(smiles)
+    mol = Chem.AddHs(mol)
+
+    # Check if molecules are valid
+    if not mol:
+        raise ValueError('Invalid Peptide SMILES')
+    
+    if AllChem.EmbedMolecule(mol, randomSeed=42) == -1:
+        # Try a different random seed
+        if AllChem.EmbedMolecule(mol, randomSeed=43) == -1:
+            raise ValueError("Embedding failed for peptide")
+    
+    AllChem.UFFOptimizeMolecule(mol)
+
+    # Convert to PDB
+    pdb = Chem.MolToPDBBlock(mol)
+
+    # Load into PyMOL
+    cmd.read_pdbstr(pdb, name)
+    # cmd.remove(name)
+    cmd.show('sticks', name)
+    cmd.orient()
+    print(smiles)
+cmd.extend('peptide', peptide)
