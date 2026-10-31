@@ -6,6 +6,8 @@ one_letter ={'VAL':'V', 'ILE':'I', 'LEU':'L', 'GLU':'E', 'GLN':'Q', \
 'ARG':'R', 'LYS':'K', 'SER':'S', 'THR':'T', 'MET':'M', 'ALA':'A',    \
 'GLY':'G', 'PRO':'P', 'CYS':'C'}
 
+set label_position, (3,1,1) 
+set label_size, 25 
 cmd.alias('tag', 'label n. CA and sele, "%s%s" % (one_letter[resn], resi)')
 cmd.alias('b', 'label n. CA and sele, b')
 cmd.alias('untag', 'hide label, sele')
