@@ -294,6 +294,41 @@ the clipboard.
 fasta
 ```
 
+### `printscore`
+
+Print numeric docking-score properties for the currently displayed PyMOL
+state. By default, the command searches enabled molecular objects and detects
+property names containing `score`, `affinity`, `energy`, `confidence`, or
+`binding`, as well as RMSD lower- and upper-bound properties. Rank, pose, and
+timing properties are excluded from automatic detection.
+
+If equivalent `Affinity` and `Score_affinity` properties have the same numeric
+value, only the more explicit `Score_affinity` property is printed.
+
+This supports state properties from smina, GNINA, and other SDF outputs without
+requiring a fixed score-property name. Use the optional second argument to
+request an exact property name. Property-name matching is case-insensitive.
+
+On older PyMOL versions without the object-property API, `printscore` first
+tries PyMOL's exported SDF and then looks for `<object_name>.sdf` in the current
+directory and the user's Downloads directory. The optional third argument can
+specify the original SDF explicitly. Use `auto` as the second argument when
+automatic score-name detection is wanted with an explicit source file.
+
+```pml
+printscore
+printscore docked
+printscore docked, CNNscore
+printscore enabled, iScreeM_Score_affinity
+printscore 20261101_2220_6etj, auto, /Users/keetane/Downloads/20261101_2220_6etj.sdf
+```
+
+Typical output:
+
+```text
+printscore: object=docked, state=1, iScreeM_Score_affinity=-11.6
+```
+
 ### `seq`
 
 Print the FASTA sequence of `sele` and copy the printed FASTA text to the

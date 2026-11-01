@@ -44,6 +44,11 @@ Build an aligned structure session for a human protein target::
 
     target JAK1
 
+Print docking scores for the currently displayed state of enabled objects::
+
+    printscore
+    printscore docked, CNNscore
+
 The downloaded PDB file is saved in PyMOL's current working directory and is
 loaded as a new object.  Only Homo sapiens (NCBI taxonomy ID 9606) entries are
 accepted.
@@ -2303,6 +2308,262 @@ def pl() -> None:
 
 
 cmd.extend("pl", pl)
+
+
+_DOCKING_SCORE_NAME = re.compile(
+    r"(?:score|affinity|energy|confidence|binding|rmsd)",
+    flags=re.IGNORECASE,
+)
+_NON_SCORE_METRIC_NAME = re.compile(
+    r"(?:rank|pose|runtime|time)",
+    flags=re.IGNORECASE,
+)
+_MAX_SCORE_SDF_BYTES = 100 * 1024 * 1024
+
+
+def _object_property_names(object_name: str, state: int) -> list[str]:
+    """Return normalized object-property names for one PyMOL state."""
+
+    raw_properties = cmd.get_property_list(object_name, state=state) or []
+    if isinstance(raw_properties, dict):
+        raw_properties = raw_properties.keys()
+
+    names = []
+    for item in raw_properties:
+        if isinstance(item, str):
+            property_name = item
+        elif isinstance(item, (list, tuple)) and item:
+            property_name = str(item[0])
+        else:
+            continue
+        if property_name and property_name not in names:
+            names.append(property_name)
+    return names
+
+
+def _sdf_record_properties(record: str) -> dict[str, str]:
+    """Parse SD tags from one SDF record without requiring RDKit."""
+
+    properties = {}
+    lines = record.splitlines()
+    index = 0
+    while index < len(lines):
+        match = re.match(r"^>\s*<([^>]+)>", lines[index])
+        if not match:
+            index += 1
+            continue
+        property_name = match.group(1).strip()
+        index += 1
+        values = []
+        while index < len(lines) and lines[index].strip():
+            values.append(lines[index])
+            index += 1
+        properties[property_name] = "\n".join(values).strip()
+    return properties
+
+
+def _sdf_state_properties(sdf_text: str, state: int) -> dict[str, str]:
+    """Return SD tags for a one-based record/state index."""
+
+    records = [
+        record
+        for record in re.split(r"^\$\$\$\$\s*$", sdf_text, flags=re.MULTILINE)
+        if record.strip()
+    ]
+    if state < 1 or state > len(records):
+        return {}
+    return _sdf_record_properties(records[state - 1])
+
+
+def _read_sdf_state_properties(path: Path, state: int) -> dict[str, str]:
+    """Read one state's SD tags from a size-limited local SDF file."""
+
+    resolved_path = path.expanduser().resolve()
+    if not resolved_path.is_file():
+        return {}
+    if resolved_path.stat().st_size > _MAX_SCORE_SDF_BYTES:
+        raise ValueError("the SDF file exceeds the 100 MiB size limit")
+    sdf_text = resolved_path.read_text(encoding="utf-8", errors="replace")
+    return _sdf_state_properties(sdf_text, state)
+
+
+def _score_source_candidates(object_name: str, source_file: str) -> list[Path]:
+    """Return explicit or narrowly inferred SDF source paths."""
+
+    if source_file:
+        return [Path(source_file)]
+    filename = f"{object_name}.sdf"
+    candidates = [Path.cwd() / filename, Path.home() / "Downloads" / filename]
+    return list(dict.fromkeys(candidates))
+
+
+def _state_properties(
+    object_name: str,
+    state: int,
+    source_file: str,
+) -> dict[str, Any]:
+    """Read state properties through modern and legacy PyMOL fallbacks."""
+
+    get_property_list = getattr(cmd, "get_property_list", None)
+    get_property = getattr(cmd, "get_property", None)
+    if callable(get_property_list) and callable(get_property):
+        property_names = _object_property_names(object_name, state)
+        properties = {
+            name: get_property(name, object_name, state=state)
+            for name in property_names
+        }
+        if properties:
+            return properties
+
+    get_sdfstr = getattr(cmd, "get_sdfstr", None)
+    if callable(get_sdfstr):
+        try:
+            exported_sdf = get_sdfstr(f"({object_name})", state=state, quiet=1)
+        except Exception:
+            exported_sdf = None
+        if exported_sdf:
+            properties = _sdf_state_properties(str(exported_sdf), 1)
+            if properties:
+                return properties
+
+    for candidate in _score_source_candidates(object_name, source_file):
+        properties = _read_sdf_state_properties(candidate, state)
+        if properties:
+            return properties
+    return {}
+
+
+def _numeric_property_value(value: Any) -> Optional[Any]:
+    """Return a numeric property value, accepting numeric SDF strings."""
+
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        numeric_value = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return int(numeric_value) if numeric_value.is_integer() else numeric_value
+
+
+def _deduplicate_score_aliases(scores: dict[str, Any]) -> dict[str, Any]:
+    """Remove equal ``Affinity``/``Score_affinity`` aliases."""
+
+    deduplicated = {}
+    aliases: dict[str, str] = {}
+    for property_name, value in scores.items():
+        alias = re.sub(r"(^|_)score_", r"\1", property_name.casefold())
+        existing_name = aliases.get(alias)
+        if existing_name is None or deduplicated[existing_name] != value:
+            deduplicated[property_name] = value
+            aliases[alias] = property_name
+            continue
+
+        existing_is_score = "_score_" in existing_name.casefold()
+        current_is_score = "_score_" in property_name.casefold()
+        if current_is_score and not existing_is_score:
+            del deduplicated[existing_name]
+            deduplicated[property_name] = value
+            aliases[alias] = property_name
+    return deduplicated
+
+
+def printscore(
+    selection: str = "enabled",
+    score_name: str = "",
+    source_file: str = "",
+) -> dict[str, dict[str, Any]]:
+    """Print docking scores for the current state of selected objects."""
+
+    target_selection = str(selection).strip() or "enabled"
+    requested_name = str(score_name).strip()
+    if requested_name.casefold() in {"auto", "*"}:
+        requested_name = ""
+    source_path = str(source_file).strip()
+    try:
+        object_names = list(cmd.get_object_list(f"({target_selection})"))
+    except Exception as exc:
+        print(f"printscore: Error: Invalid selection '{target_selection}': {exc}")
+        return {}
+
+    if not object_names:
+        print(f"printscore: Error: No molecular objects match '{target_selection}'.")
+        return {}
+
+    current_state = int(cmd.get_state())
+    results: dict[str, dict[str, Any]] = {}
+    inspected_objects = []
+
+    for object_name in object_names:
+        state_count = int(cmd.count_states(object_name))
+        if state_count < current_state:
+            continue
+        inspected_objects.append(object_name)
+
+        try:
+            properties = _state_properties(object_name, current_state, source_path)
+        except Exception as exc:
+            print(
+                f"printscore: Warning: Could not read properties from "
+                f"'{object_name}' state {current_state}: {exc}"
+            )
+            continue
+        property_names = list(properties)
+
+        if requested_name:
+            matching_names = [
+                name
+                for name in property_names
+                if name.casefold() == requested_name.casefold()
+            ]
+        else:
+            matching_names = [
+                name
+                for name in property_names
+                if _DOCKING_SCORE_NAME.search(name)
+                and not _NON_SCORE_METRIC_NAME.search(name)
+            ]
+
+        object_scores = {}
+        for property_name in matching_names:
+            raw_value = properties[property_name]
+            value = _numeric_property_value(raw_value)
+            if value is not None:
+                object_scores[property_name] = value
+        if not requested_name:
+            object_scores = _deduplicate_score_aliases(object_scores)
+
+        if object_scores:
+            results[object_name] = object_scores
+            for property_name, value in object_scores.items():
+                print(
+                    f"printscore: object={object_name}, state={current_state}, "
+                    f"{property_name}={value}"
+                )
+
+    if not results:
+        if not inspected_objects:
+            print(
+                f"printscore: Error: State {current_state} is not available in "
+                "the matching objects."
+            )
+        elif requested_name:
+            print(
+                f"printscore: Error: Numeric property '{requested_name}' was not "
+                f"found in state {current_state}."
+            )
+        else:
+            print(
+                f"printscore: Error: No numeric docking score properties were "
+                f"found in state {current_state}. If this PyMOL version does "
+                "not preserve SDF properties, provide the original SDF as the "
+                "third argument."
+            )
+    return results
+
+
+cmd.extend("printscore", printscore)
 
 
 def _print_and_copy_fastastr(command_name: str, selection: str) -> str:
