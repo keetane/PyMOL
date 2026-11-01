@@ -141,7 +141,8 @@ reinvent ligand, mol2mol_medium, 2000, 0.8
 
 ### `white`
 
-Color enabled objects white by atom type using PyMOL utilities.
+Color only enabled protein polymers white by atom type using PyMOL utilities.
+Ligands, water, nucleic acids, and other non-protein atoms are not changed.
 
 ```pml
 white
@@ -202,11 +203,17 @@ grab ligand, 6
 
 ### `hb`
 
-Create `ligand` from enabled organic atoms and show polar contacts within the
-same object as `contact`.
+Use visible, non-water HETATM atoms as the ligand and show polar contacts to
+enabled protein receptor atoms and enabled water molecules. Receptor contacts
+are stored in `hb_receptor`; water contacts are stored in `hb_water`.
+
+For multi-state objects, each measurement object is generated with all input
+states. Changing the current PyMOL state therefore changes the displayed
+interactions to the matching state.
 
 ```pml
 hb
+set state, 2
 ```
 
 ### `dock`
@@ -221,22 +228,33 @@ dock Lig
 
 ### `at`
 
-Show polar contacts for `sele` and zoom to the ligand site. The default zoom
-distance is 8 Å.
+Show polar contacts between a selection and enabled protein residues or water.
+The default selection is `sele`. Contacts are stored in `at_receptor` and
+`at_water`, with separate measurements for each state. The command does not
+zoom or call `see`.
 
 ```pml
 at
-at 10
+at ligand
+at visible and hetatm and not solvent
 ```
 
 ### `byres`
 
-Create `Lig` and a disabled nearby-residue object, then prepare lines, polar
-contacts, zoom, and `sele`. The default distance is 8 Å.
+Create `Lig` and a nearby-residue object from a ligand selection. The first
+argument is the ligand selection and defaults to `enabled and organic`; the
+second argument is the neighborhood distance and defaults to 10 Å.
+
+The source objects are disabled. The new neighborhood object contains complete
+residues and complete water molecules within the requested distance. Protein
+residues within 4 Å of `Lig` are shown as lines. The command then calls `hb` to
+create state-aware receptor and water polar contacts, then runs `sol` to show
+water molecules as non-bonded spheres. It does not call `grab`.
 
 ```pml
 byres
-byres 6, organic and enabled
+byres sele
+byres visible and hetatm and not solvent, 8
 ```
 
 ### `well`

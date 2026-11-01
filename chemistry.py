@@ -1989,9 +1989,9 @@ cmd.alias("ph", "hide (hydro) and enabled and (elem C extend 1)")
 
 
 def white() -> None:
-    """Color enabled objects white by atom."""
+    """Color only enabled protein polymers white by atom."""
 
-    util.cba(144, "enabled", _self=cmd)
+    util.cba(144, "enabled and polymer.protein", _self=cmd)
 
 
 cmd.extend("white", white)
@@ -2083,19 +2083,59 @@ cmd.extend("grab", grab)
 
 
 def hb() -> None:
-    """Show polar contacts within the enabled ligand object."""
+    """Show state-aware polar contacts from visible HETATM ligands."""
 
-    cmd.select("ligand", "organic and enabled")
-    cmd.dist(
-        "contact",
-        "(ligand)",
-        "(byobj (ligand)) and (not (ligand))",
-        quiet=1,
-        mode=2,
-        label=0,
-        reset=1,
+    ligand_selection = "visible and hetatm and not solvent"
+    receptor_selection = "enabled and polymer.protein"
+    water_selection = "enabled and solvent"
+
+    if cmd.count_atoms(ligand_selection) == 0:
+        print("hb: Error: No visible non-water HETATM ligand was found.")
+        return
+
+    cmd.delete("contact")
+    cmd.delete("ligand")
+    cmd.delete("hb_receptor")
+    cmd.delete("hb_water")
+
+    created_objects = []
+    if cmd.count_atoms(receptor_selection) > 0:
+        cmd.distance(
+            "hb_receptor",
+            ligand_selection,
+            receptor_selection,
+            mode=2,
+            label=0,
+            reset=1,
+            state=0,
+            quiet=1,
+        )
+        cmd.enable("hb_receptor")
+        created_objects.append("hb_receptor")
+
+    if cmd.count_atoms(water_selection) > 0:
+        cmd.distance(
+            "hb_water",
+            ligand_selection,
+            water_selection,
+            mode=2,
+            label=0,
+            reset=1,
+            state=0,
+            quiet=1,
+        )
+        cmd.enable("hb_water")
+        created_objects.append("hb_water")
+
+    if not created_objects:
+        print("hb: Error: No enabled protein receptor or water atoms were found.")
+        return
+
+    print(
+        "hb: Created state-aware polar contacts: "
+        + ", ".join(created_objects)
+        + "."
     )
-    cmd.enable("contact")
 
 
 cmd.extend("hb", hb)
@@ -2121,45 +2161,106 @@ def dock(ligand: str = "enabled and organic") -> None:
 cmd.extend("dock", dock)
 
 
-def at(distance: Any = 8) -> None:
-    """Show polar contacts for ``sele`` and zoom to the ligand site."""
+def at(selection: str = "sele") -> None:
+    """Show state-aware protein and water contacts for a selection."""
 
-    cmd.dist(
-        "contact",
-        "(sele)",
-        "(byobj (sele)) and (not (sele))",
-        quiet=1,
-        mode=2,
-        label=0,
-        reset=1,
+    target_selection = str(selection).strip() or "sele"
+    if cmd.count_atoms(target_selection) == 0:
+        print(f"at: Error: No atoms were found in selection '{target_selection}'.")
+        return
+
+    receptor_selection = (
+        f"(enabled and polymer.protein) and not ({target_selection})"
     )
-    cmd.enable("contact")
-    see(distance)
+    water_selection = f"(enabled and solvent) and not ({target_selection})"
+
+    cmd.delete("contact")
+    cmd.delete("at_receptor")
+    cmd.delete("at_water")
+
+    created_objects = []
+    if cmd.count_atoms(receptor_selection) > 0:
+        cmd.distance(
+            "at_receptor",
+            target_selection,
+            receptor_selection,
+            quiet=1,
+            mode=2,
+            label=0,
+            reset=1,
+            state=0,
+        )
+        cmd.enable("at_receptor")
+        created_objects.append("at_receptor")
+
+    if cmd.count_atoms(water_selection) > 0:
+        cmd.distance(
+            "at_water",
+            target_selection,
+            water_selection,
+            quiet=1,
+            mode=2,
+            label=0,
+            reset=1,
+            state=0,
+        )
+        cmd.enable("at_water")
+        created_objects.append("at_water")
+
+    if not created_objects:
+        print("at: Error: No enabled protein receptor or water atoms were found.")
+        return
+
+    print(
+        "at: Created state-aware polar contacts: "
+        + ", ".join(created_objects)
+        + "."
+    )
 
 
 cmd.extend("at", at)
 
 
-def byres(distance: Any = 8, ligand: str = "organic and enabled") -> None:
+def byres(ligand: str = "enabled and organic", distance: Any = 10) -> None:
     """Create ligand and nearby-residue objects for interaction analysis."""
 
     distance_value = _distance_text(distance, "byres")
     if distance_value is None:
         return
-    ligand_selection = str(ligand).strip() or "organic and enabled"
+    ligand_selection = str(ligand).strip() or "enabled and organic"
+    if cmd.count_atoms(ligand_selection) == 0:
+        print(f"byres: Error: No atoms were found in selection '{ligand_selection}'.")
+        return
+
     object_suffix = distance_value.replace("-", "m").replace(".", "_")
     object_name = f"byres{object_suffix}"
-    cmd.create("Lig", ligand_selection)
-    cmd.create(
-        object_name,
-        f"byres ({ligand_selection}) around {distance_value} and enabled",
+    nearby_selection = (
+        f"byres ((enabled and not ({ligand_selection})) within "
+        f"{distance_value} of ({ligand_selection}))"
     )
-    cmd.disable(object_name)
+    source_selection = f"({ligand_selection}) or ({nearby_selection})"
+    source_objects = list(cmd.get_object_list(source_selection))
+
+    cmd.create("Lig", ligand_selection)
+    cmd.create(object_name, nearby_selection)
+
+    for source_object in source_objects:
+        if source_object not in {"Lig", object_name}:
+            cmd.disable(source_object)
+
+    cmd.hide("everything", "Lig")
+    cmd.hide("everything", object_name)
+    cmd.show("sticks", "Lig")
+    line_selection = (
+        f"byres (({object_name} and polymer.protein) within 4 of Lig)"
+    )
+    cmd.show("lines", line_selection)
+
     cmd.enable("Lig")
-    line()
-    dock("Lig")
-    see()
-    grab()
+    cmd.enable(object_name)
+    cmd.zoom(f"(Lig) or ({line_selection})", buffer=2.0)
+    hb()
+    cmd.do("sol")
 
 
 cmd.extend("byres", byres)
