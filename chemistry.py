@@ -2,7 +2,7 @@
 
 Load this file in PyMOL with::
 
-    run chemistry.py
+    run https://raw.githubusercontent.com/keetane/PyMOL/refs/heads/main/chemistry.py
 
 Then retrieve a human AlphaFold model by gene/protein name or UniProt accession::
 
@@ -25,6 +25,12 @@ Search PubChem by name, copy its SMILES, and load its 3D SDF conformer::
 
     pubchem aspirin
     pubchem "acetylsalicylic acid"
+
+Load an SDF while retaining all state metadata, inspect it, or filter states::
+
+    loadsdf vendor_library.sdf, library
+    sdfinfo library, MW
+    sdffilter library, MW < 500 and HBD <= 5, leadlike
 
 Build a 3D peptide from a one-letter sequence and an optional cyclization mode::
 
@@ -56,6 +62,7 @@ accepted.
 
 from __future__ import annotations
 
+import ast
 import csv
 import datetime as dt
 import glob
@@ -2091,8 +2098,7 @@ def hb() -> None:
     """Show state-aware polar contacts from visible HETATM ligands."""
 
     ligand_selection = "visible and hetatm and not solvent"
-    receptor_selection = "enabled and polymer.protein"
-    water_selection = "enabled and solvent"
+    contact_selection = "enabled and (polymer.protein or solvent)"
 
     if cmd.count_atoms(ligand_selection) == 0:
         print("hb: Error: No visible non-water HETATM ligand was found.")
@@ -2102,45 +2108,25 @@ def hb() -> None:
     cmd.delete("ligand")
     cmd.delete("hb_receptor")
     cmd.delete("hb_water")
+    cmd.delete("at_receptor")
+    cmd.delete("at_water")
 
-    created_objects = []
-    if cmd.count_atoms(receptor_selection) > 0:
-        cmd.distance(
-            "hb_receptor",
-            ligand_selection,
-            receptor_selection,
-            mode=2,
-            label=0,
-            reset=1,
-            state=0,
-            quiet=1,
-        )
-        cmd.enable("hb_receptor")
-        created_objects.append("hb_receptor")
-
-    if cmd.count_atoms(water_selection) > 0:
-        cmd.distance(
-            "hb_water",
-            ligand_selection,
-            water_selection,
-            mode=2,
-            label=0,
-            reset=1,
-            state=0,
-            quiet=1,
-        )
-        cmd.enable("hb_water")
-        created_objects.append("hb_water")
-
-    if not created_objects:
+    if cmd.count_atoms(contact_selection) == 0:
         print("hb: Error: No enabled protein receptor or water atoms were found.")
         return
 
-    print(
-        "hb: Created state-aware polar contacts: "
-        + ", ".join(created_objects)
-        + "."
+    cmd.distance(
+        "contact",
+        ligand_selection,
+        contact_selection,
+        mode=2,
+        label=0,
+        reset=1,
+        state=0,
+        quiet=1,
     )
+    cmd.enable("contact")
+    print("hb: Created state-aware protein and water contacts in 'contact'.")
 
 
 cmd.extend("hb", hb)
@@ -2174,53 +2160,33 @@ def at(selection: str = "sele") -> None:
         print(f"at: Error: No atoms were found in selection '{target_selection}'.")
         return
 
-    receptor_selection = (
-        f"(enabled and polymer.protein) and not ({target_selection})"
+    contact_selection = (
+        f"(enabled and (polymer.protein or solvent)) "
+        f"and not ({target_selection})"
     )
-    water_selection = f"(enabled and solvent) and not ({target_selection})"
 
     cmd.delete("contact")
     cmd.delete("at_receptor")
     cmd.delete("at_water")
+    cmd.delete("hb_receptor")
+    cmd.delete("hb_water")
 
-    created_objects = []
-    if cmd.count_atoms(receptor_selection) > 0:
-        cmd.distance(
-            "at_receptor",
-            target_selection,
-            receptor_selection,
-            quiet=1,
-            mode=2,
-            label=0,
-            reset=1,
-            state=0,
-        )
-        cmd.enable("at_receptor")
-        created_objects.append("at_receptor")
-
-    if cmd.count_atoms(water_selection) > 0:
-        cmd.distance(
-            "at_water",
-            target_selection,
-            water_selection,
-            quiet=1,
-            mode=2,
-            label=0,
-            reset=1,
-            state=0,
-        )
-        cmd.enable("at_water")
-        created_objects.append("at_water")
-
-    if not created_objects:
+    if cmd.count_atoms(contact_selection) == 0:
         print("at: Error: No enabled protein receptor or water atoms were found.")
         return
 
-    print(
-        "at: Created state-aware polar contacts: "
-        + ", ".join(created_objects)
-        + "."
+    cmd.distance(
+        "contact",
+        target_selection,
+        contact_selection,
+        quiet=1,
+        mode=2,
+        label=0,
+        reset=1,
+        state=0,
     )
+    cmd.enable("contact")
+    print("at: Created state-aware protein and water contacts in 'contact'.")
 
 
 cmd.extend("at", at)
@@ -2237,8 +2203,15 @@ def byres(ligand: str = "enabled and organic", distance: Any = 10) -> None:
         print(f"byres: Error: No atoms were found in selection '{ligand_selection}'.")
         return
 
-    object_suffix = distance_value.replace("-", "m").replace(".", "_")
-    object_name = f"byres{object_suffix}"
+    ligand_objects = list(cmd.get_object_list(f"({ligand_selection})"))
+    if not ligand_objects:
+        print(
+            f"byres: Error: Could not determine the source object for "
+            f"'{ligand_selection}'."
+        )
+        return
+    original_object = ligand_objects[0]
+    object_name = f"byres_{original_object}"
     nearby_selection = (
         f"byres ((enabled and not ({ligand_selection})) within "
         f"{distance_value} of ({ligand_selection}))"
@@ -2266,6 +2239,7 @@ def byres(ligand: str = "enabled and organic", distance: Any = 10) -> None:
     cmd.zoom(f"(Lig) or ({line_selection})", buffer=2.0)
     hb()
     cmd.do("sol")
+    print(f"byres: Created '{object_name}' from '{original_object}'.")
 
 
 cmd.extend("byres", byres)
@@ -2318,7 +2292,31 @@ _NON_SCORE_METRIC_NAME = re.compile(
     r"(?:rank|pose|runtime|time)",
     flags=re.IGNORECASE,
 )
-_MAX_SCORE_SDF_BYTES = 100 * 1024 * 1024
+_SDF_SESSION_KEY = "chemistry_sdf_metadata"
+_SDF_METADATA_FALLBACK: dict[str, dict[str, Any]] = {}
+_MISSING_SDF_VALUE = object()
+
+
+def _sdf_metadata_store() -> dict[str, dict[str, Any]]:
+    """Return the session-persistent SDF metadata store when available."""
+
+    try:
+        import pymol
+
+        session = getattr(pymol, "session", None)
+        if isinstance(session, dict):
+            store = session.setdefault(_SDF_SESSION_KEY, {})
+            if isinstance(store, dict):
+                return store
+        elif session is not None:
+            store = getattr(session, _SDF_SESSION_KEY, None)
+            if not isinstance(store, dict):
+                store = {}
+                setattr(session, _SDF_SESSION_KEY, store)
+            return store
+    except Exception:
+        pass
+    return _SDF_METADATA_FALLBACK
 
 
 def _object_property_names(object_name: str, state: int) -> list[str]:
@@ -2362,6 +2360,59 @@ def _sdf_record_properties(record: str) -> dict[str, str]:
     return properties
 
 
+def _read_sdf_metadata(path: Path) -> tuple[Path, dict[int, dict[str, str]]]:
+    """Stream all SD tags from an SDF file, indexed by one-based state."""
+
+    resolved_path = path.expanduser().resolve()
+    if not resolved_path.is_file():
+        raise FileNotFoundError(f"SDF file not found: {resolved_path}")
+
+    states: dict[int, dict[str, str]] = {}
+    record_lines = []
+    with resolved_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if line.rstrip("\r\n").strip() == "$$$$":
+                if record_lines:
+                    state = len(states) + 1
+                    states[state] = _sdf_record_properties("".join(record_lines))
+                    record_lines = []
+                continue
+            record_lines.append(line)
+    if any(line.strip() for line in record_lines):
+        state = len(states) + 1
+        states[state] = _sdf_record_properties("".join(record_lines))
+    if not states:
+        raise ValueError("the file contains no SDF records")
+    return resolved_path, states
+
+
+def _register_sdf_metadata(
+    object_name: str,
+    source_path: Optional[Path],
+    states: dict[int, dict[str, str]],
+) -> None:
+    """Attach parsed SDF metadata to a PyMOL session object name."""
+
+    _sdf_metadata_store()[object_name] = {
+        "source": str(source_path) if source_path is not None else "",
+        "states": states,
+    }
+
+
+def _stored_sdf_properties(
+    object_name: str,
+    state: int,
+) -> Optional[dict[str, Any]]:
+    entry = _sdf_metadata_store().get(object_name)
+    if not isinstance(entry, dict):
+        return None
+    states = entry.get("states")
+    if not isinstance(states, dict):
+        return None
+    properties = states.get(state, states.get(str(state)))
+    return properties if isinstance(properties, dict) else None
+
+
 def _sdf_state_properties(sdf_text: str, state: int) -> dict[str, str]:
     """Return SD tags for a one-based record/state index."""
 
@@ -2375,26 +2426,361 @@ def _sdf_state_properties(sdf_text: str, state: int) -> dict[str, str]:
     return _sdf_record_properties(records[state - 1])
 
 
-def _read_sdf_state_properties(path: Path, state: int) -> dict[str, str]:
-    """Read one state's SD tags from a size-limited local SDF file."""
-
-    resolved_path = path.expanduser().resolve()
-    if not resolved_path.is_file():
-        return {}
-    if resolved_path.stat().st_size > _MAX_SCORE_SDF_BYTES:
-        raise ValueError("the SDF file exceeds the 100 MiB size limit")
-    sdf_text = resolved_path.read_text(encoding="utf-8", errors="replace")
-    return _sdf_state_properties(sdf_text, state)
-
-
 def _score_source_candidates(object_name: str, source_file: str) -> list[Path]:
     """Return explicit or narrowly inferred SDF source paths."""
 
     if source_file:
         return [Path(source_file)]
     filename = f"{object_name}.sdf"
-    candidates = [Path.cwd() / filename, Path.home() / "Downloads" / filename]
+    script_directory = Path(__file__).resolve().parent
+    candidates = [Path.cwd() / filename, script_directory / filename]
+    try:
+        candidates.extend(
+            child / filename
+            for child in script_directory.iterdir()
+            if child.is_dir()
+        )
+    except OSError:
+        pass
+    candidates.append(Path.home() / "Downloads" / filename)
     return list(dict.fromkeys(candidates))
+
+
+def _load_object_sdf_metadata(
+    object_name: str,
+    source_file: str = "",
+) -> Optional[dict[str, Any]]:
+    """Return stored metadata or hydrate it from a narrowly located SDF."""
+
+    store = _sdf_metadata_store()
+    entry = store.get(object_name)
+    if isinstance(entry, dict) and isinstance(entry.get("states"), dict):
+        return entry
+
+    for candidate in _score_source_candidates(object_name, source_file):
+        if not candidate.expanduser().is_file():
+            continue
+        resolved_path, states = _read_sdf_metadata(candidate)
+        _register_sdf_metadata(object_name, resolved_path, states)
+        return store.get(object_name)
+    return None
+
+
+def _sdf_object_name(path: Path, requested_name: str) -> str:
+    candidate = requested_name.strip() or path.stem
+    legal_name = re.sub(r"[^A-Za-z0-9_]+", "_", candidate).strip("_")
+    return legal_name or "sdf_object"
+
+
+def loadsdf(filename: str, object_name: str = "") -> Optional[str]:
+    """Load an SDF and retain every SD tag for each PyMOL state."""
+
+    try:
+        resolved_path, states = _read_sdf_metadata(Path(str(filename).strip()))
+    except Exception as exc:
+        print(f"loadsdf: Error: {exc}")
+        return None
+
+    pymol_name = _sdf_object_name(resolved_path, str(object_name))
+    existing_objects = set(cmd.get_names("objects") or [])
+    if pymol_name in existing_objects:
+        print(f"loadsdf: Error: Object '{pymol_name}' already exists.")
+        return None
+
+    try:
+        cmd.load(str(resolved_path), pymol_name)
+    except Exception as exc:
+        print(f"loadsdf: Error: Could not load '{resolved_path}': {exc}")
+        return None
+
+    loaded_states = int(cmd.count_states(pymol_name))
+    _register_sdf_metadata(pymol_name, resolved_path, states)
+    if loaded_states != len(states):
+        print(
+            f"loadsdf: Warning: PyMOL loaded {loaded_states} states, but the "
+            f"SDF contains {len(states)} records."
+        )
+
+    property_names = {
+        property_name
+        for properties in states.values()
+        for property_name in properties
+    }
+    print(
+        f"loadsdf: Loaded '{pymol_name}' with {loaded_states} states and "
+        f"{len(property_names)} unique SD properties."
+    )
+    return pymol_name
+
+
+cmd.extend("loadsdf", loadsdf)
+
+
+def _single_sdf_object(selection: str, command_name: str) -> Optional[str]:
+    target_selection = str(selection).strip() or "enabled"
+    try:
+        object_names = list(cmd.get_object_list(f"({target_selection})"))
+    except Exception as exc:
+        print(f"{command_name}: Error: Invalid selection '{target_selection}': {exc}")
+        return None
+    if not object_names:
+        print(f"{command_name}: Error: No molecular object matches '{target_selection}'.")
+        return None
+    if len(object_names) != 1:
+        print(
+            f"{command_name}: Error: Selection '{target_selection}' matches "
+            f"{len(object_names)} objects; specify exactly one object."
+        )
+        return None
+    return object_names[0]
+
+
+def _print_sdf_property(property_name: str, value: Any) -> None:
+    text = str(value)
+    if "\n" not in text:
+        print(f"{property_name}={text}")
+        return
+    print(f"{property_name}=")
+    for line in text.splitlines():
+        print(f"  {line}")
+
+
+def sdfinfo(
+    selection: str = "enabled",
+    property_name: str = "",
+) -> dict[str, Any]:
+    """Print retained SD properties for the current state of one object."""
+
+    object_name = _single_sdf_object(selection, "sdfinfo")
+    if object_name is None:
+        return {}
+    entry = _load_object_sdf_metadata(object_name)
+    if entry is None:
+        print(f"sdfinfo: Error: No retained SDF metadata was found for '{object_name}'.")
+        return {}
+
+    state = int(cmd.get_state())
+    properties = _stored_sdf_properties(object_name, state)
+    if properties is None:
+        print(f"sdfinfo: Error: No SDF metadata exists for state {state}.")
+        return {}
+
+    requested_name = str(property_name).strip()
+    if requested_name and requested_name.casefold() not in {"all", "*"}:
+        matching_names = [
+            name
+            for name in properties
+            if name.casefold() == requested_name.casefold()
+        ]
+        if not matching_names:
+            print(
+                f"sdfinfo: Error: Property '{requested_name}' was not found in "
+                f"'{object_name}' state {state}."
+            )
+            return {}
+        properties = {name: properties[name] for name in matching_names}
+    else:
+        properties = dict(properties)
+
+    print(f"sdfinfo: object={object_name}, state={state}")
+    for name, value in properties.items():
+        _print_sdf_property(name, value)
+    return properties
+
+
+cmd.extend("sdfinfo", sdfinfo)
+
+
+def _coerce_sdf_filter_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if re.fullmatch(r"[+-]?\d+", text):
+        try:
+            return int(text)
+        except ValueError:
+            pass
+    try:
+        return float(text)
+    except ValueError:
+        return text
+
+
+def _validate_sdf_filter_tree(tree: ast.AST) -> None:
+    allowed_nodes = (
+        ast.Expression,
+        ast.BoolOp,
+        ast.UnaryOp,
+        ast.Compare,
+        ast.Name,
+        ast.Load,
+        ast.Constant,
+        ast.Call,
+        ast.And,
+        ast.Or,
+        ast.Not,
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+    )
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed_nodes):
+            raise ValueError(f"unsupported expression element: {type(node).__name__}")
+        if isinstance(node, ast.Call):
+            if (
+                not isinstance(node.func, ast.Name)
+                or node.func.id != "prop"
+                or len(node.args) != 1
+                or node.keywords
+                or not isinstance(node.args[0], ast.Constant)
+                or not isinstance(node.args[0].value, str)
+            ):
+                raise ValueError('only prop("property name") is allowed')
+
+
+def _sdf_property_lookup(properties: dict[str, Any], name: str) -> Any:
+    requested_name = name.casefold()
+    for property_name, value in properties.items():
+        if property_name.casefold() == requested_name:
+            return _coerce_sdf_filter_value(value)
+    return _MISSING_SDF_VALUE
+
+
+def _evaluate_sdf_filter(node: ast.AST, properties: dict[str, Any]) -> Any:
+    if isinstance(node, ast.Expression):
+        return _evaluate_sdf_filter(node.body, properties)
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        return _sdf_property_lookup(properties, node.id)
+    if isinstance(node, ast.Call):
+        return _sdf_property_lookup(properties, str(node.args[0].value))
+    if isinstance(node, ast.BoolOp):
+        values = [_evaluate_sdf_filter(value, properties) for value in node.values]
+        if isinstance(node.op, ast.And):
+            return all(value is not _MISSING_SDF_VALUE and bool(value) for value in values)
+        return any(value is not _MISSING_SDF_VALUE and bool(value) for value in values)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        value = _evaluate_sdf_filter(node.operand, properties)
+        return value is _MISSING_SDF_VALUE or not bool(value)
+    if isinstance(node, ast.Compare):
+        left = _evaluate_sdf_filter(node.left, properties)
+        for operator_node, comparator in zip(node.ops, node.comparators):
+            right = _evaluate_sdf_filter(comparator, properties)
+            if left is _MISSING_SDF_VALUE or right is _MISSING_SDF_VALUE:
+                return False
+            try:
+                if isinstance(operator_node, ast.Eq):
+                    matched = left == right
+                elif isinstance(operator_node, ast.NotEq):
+                    matched = left != right
+                elif isinstance(operator_node, ast.Lt):
+                    matched = left < right
+                elif isinstance(operator_node, ast.LtE):
+                    matched = left <= right
+                elif isinstance(operator_node, ast.Gt):
+                    matched = left > right
+                elif isinstance(operator_node, ast.GtE):
+                    matched = left >= right
+                else:
+                    return False
+            except TypeError:
+                return False
+            if not matched:
+                return False
+            left = right
+        return True
+    raise ValueError(f"unsupported expression element: {type(node).__name__}")
+
+
+def sdffilter(
+    selection: str,
+    expression: str,
+    output_name: str = "",
+) -> Optional[str]:
+    """Create a new multi-state object containing matching SDF records."""
+
+    object_name = _single_sdf_object(selection, "sdffilter")
+    if object_name is None:
+        return None
+    entry = _load_object_sdf_metadata(object_name)
+    if entry is None:
+        print(f"sdffilter: Error: No retained SDF metadata was found for '{object_name}'.")
+        return None
+
+    expression_text = str(expression).strip()
+    if not expression_text:
+        print("sdffilter: Error: A filter expression is required.")
+        return None
+    if expression_text[:1] in {"'", '"'}:
+        try:
+            unquoted_expression = ast.literal_eval(expression_text)
+            if isinstance(unquoted_expression, str):
+                expression_text = unquoted_expression
+        except (SyntaxError, ValueError):
+            pass
+    try:
+        tree = ast.parse(expression_text, mode="eval")
+        _validate_sdf_filter_tree(tree)
+    except (SyntaxError, ValueError) as exc:
+        print(f"sdffilter: Error: Invalid filter expression: {exc}")
+        return None
+
+    states = entry.get("states", {})
+    normalized_states = {
+        int(state): properties
+        for state, properties in states.items()
+        if isinstance(properties, dict)
+    }
+    matching_states = [
+        state
+        for state, properties in normalized_states.items()
+        if bool(_evaluate_sdf_filter(tree, properties))
+    ]
+    matching_states.sort()
+    if not matching_states:
+        print(f"sdffilter: No states matched '{expression_text}'.")
+        return None
+
+    requested_output = str(output_name).strip() or f"filtered_{object_name}"
+    filtered_name = _sdf_object_name(Path(requested_output), requested_output)
+    if filtered_name in set(cmd.get_names("objects") or []):
+        print(f"sdffilter: Error: Object '{filtered_name}' already exists.")
+        return None
+
+    filtered_metadata = {}
+    for target_state, source_state in enumerate(matching_states, 1):
+        cmd.create(
+            filtered_name,
+            f"({object_name})",
+            source_state=source_state,
+            target_state=target_state,
+            discrete=1,
+        )
+        filtered_metadata[target_state] = dict(normalized_states[source_state])
+        get_title = getattr(cmd, "get_title", None)
+        set_title = getattr(cmd, "set_title", None)
+        if callable(get_title) and callable(set_title):
+            try:
+                title = get_title(object_name, source_state)
+                if title:
+                    set_title(filtered_name, target_state, title)
+            except Exception:
+                pass
+
+    _register_sdf_metadata(filtered_name, None, filtered_metadata)
+    cmd.enable(filtered_name)
+    print(
+        f"sdffilter: Created '{filtered_name}' with {len(matching_states)} of "
+        f"{len(normalized_states)} states matching '{expression_text}'."
+    )
+    return filtered_name
+
+
+cmd.extend("sdffilter", sdffilter)
 
 
 def _state_properties(
@@ -2403,6 +2789,10 @@ def _state_properties(
     source_file: str,
 ) -> dict[str, Any]:
     """Read state properties through modern and legacy PyMOL fallbacks."""
+
+    stored_properties = _stored_sdf_properties(object_name, state)
+    if stored_properties is not None:
+        return stored_properties
 
     get_property_list = getattr(cmd, "get_property_list", None)
     get_property = getattr(cmd, "get_property", None)
@@ -2426,9 +2816,10 @@ def _state_properties(
             if properties:
                 return properties
 
-    for candidate in _score_source_candidates(object_name, source_file):
-        properties = _read_sdf_state_properties(candidate, state)
-        if properties:
+    entry = _load_object_sdf_metadata(object_name, source_file)
+    if entry is not None:
+        properties = _stored_sdf_properties(object_name, state)
+        if properties is not None:
             return properties
     return {}
 
@@ -2445,28 +2836,6 @@ def _numeric_property_value(value: Any) -> Optional[Any]:
     except (TypeError, ValueError):
         return None
     return int(numeric_value) if numeric_value.is_integer() else numeric_value
-
-
-def _deduplicate_score_aliases(scores: dict[str, Any]) -> dict[str, Any]:
-    """Remove equal ``Affinity``/``Score_affinity`` aliases."""
-
-    deduplicated = {}
-    aliases: dict[str, str] = {}
-    for property_name, value in scores.items():
-        alias = re.sub(r"(^|_)score_", r"\1", property_name.casefold())
-        existing_name = aliases.get(alias)
-        if existing_name is None or deduplicated[existing_name] != value:
-            deduplicated[property_name] = value
-            aliases[alias] = property_name
-            continue
-
-        existing_is_score = "_score_" in existing_name.casefold()
-        current_is_score = "_score_" in property_name.casefold()
-        if current_is_score and not existing_is_score:
-            del deduplicated[existing_name]
-            deduplicated[property_name] = value
-            aliases[alias] = property_name
-    return deduplicated
 
 
 def printscore(
@@ -2531,9 +2900,6 @@ def printscore(
             value = _numeric_property_value(raw_value)
             if value is not None:
                 object_scores[property_name] = value
-        if not requested_name:
-            object_scores = _deduplicate_score_aliases(object_scores)
-
         if object_scores:
             results[object_name] = object_scores
             for property_name, value in object_scores.items():

@@ -21,8 +21,105 @@ For basic information, I will recommend the link below,
     https://ouchidekaiseki.com/index.php
 
 ## PyMOL Plugin
+
 This Plugins were described by Python, used pymol and rdkit.
+
+### chemistry.py: SDF metadata commands
+
+Load the current command collection directly from GitHub:
+
+```pymol
+run https://raw.githubusercontent.com/keetane/PyMOL/refs/heads/main/chemistry.py
+```
+
+`loadsdf` loads a multi-record SDF as a multi-state PyMOL object and retains
+all SD tags for their corresponding states. It is not limited to docking
+scores. Commercial-library properties such as molecular weight, hydrogen-bond
+counts, vendor identifiers, SMILES, cLogP, and custom fields are retained.
+
+For example, the following SDF fields are imported without requiring fixed
+property names:
+
+```text
+> <Vendor_ID>
+CMPD-00125
+
+> <MW>
+421.37
+
+> <HBD>
+2
+
+> <minimizedAffinity>
+-10.42
+```
+
+Load an SDF and assign a PyMOL object name:
+
+```pymol
+loadsdf /path/to/vendor_library.sdf, library
+```
+
+Print all retained properties for the currently displayed state:
+
+```pymol
+sdfinfo library
+```
+
+Typical output:
+
+```text
+sdfinfo: object=library, state=1
+Vendor_ID=CMPD-00125
+MW=421.37
+HBD=2
+minimizedAffinity=-10.42
+```
+
+Print one property with case-insensitive name matching:
+
+```pymol
+sdfinfo library, MW
+```
+
+`sdffilter` creates a new multi-state object containing only matching records.
+The original object is not modified, and all retained metadata is copied to
+the corresponding states in the filtered object.
+
+```pymol
+sdffilter library, MW < 500 and HBD <= 5, leadlike
+sdffilter library, cLogP <= 4 and HBA < 10, permeable
+```
+
+Use `prop("...")` for an SD tag containing spaces or punctuation:
+
+```pymol
+sdffilter library, 'prop("Vendor ID") == "CMPD-00125"', selected_vendor
+```
+
+Supported operators are `==`, `!=`, `<`, `<=`, `>`, and `>=`. Expressions can
+use lowercase `and`, `or`, `not`, and parentheses. Arbitrary Python calls are
+rejected.
+
+Docking scores retained by `loadsdf` are also available to `printscore`:
+
+```pymol
+loadsdf /path/to/docked.sdf, docked
+set state, 2
+printscore docked
+```
+
+Example smina output:
+
+```text
+printscore: object=docked, state=2, minimizedAffinity=-10.37497
+```
+
+For large commercial libraries, filter or split the SDF before loading if the
+full file is too large for interactive PyMOL use.
+
 ### residues.py
+
 ![residues.py](./img/residues.gif)
 Visualisation is a very important element in OSS-SBDD, and while PyMOL has a rich implementation of commands for visualisation, this plugin aims to make it easier. Let's get started.
 
